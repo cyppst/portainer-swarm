@@ -1,0 +1,69 @@
+version: '3.5'
+
+services:
+  cloudflare:
+    image: joshuaavalon/cloudflare-ddns
+    deploy:
+      placement:
+        constraints:
+        - node.role == manager
+    environment:
+    - API=30efe4ef86de71e5bd9e0e877dc80b81ce00e
+    - EMAIL=golfcomsci57@gmail.com
+    - HOST=node1.chaiyapoj.site
+    - PROXY=false
+    - TTL=1
+    - ZONE=chaiyapoj.site
+  traefik:
+    image: traefik:1.6-alpine # The official Traefik docker image
+
+    # command: --api --docker --docker.swarmMode --docker.watch --entryPoints='Name:http Address::80' --defaultentrypoints=http # Enables the web UI and tells Træfik to listen to docker
+    # ommand: --api --docker --docker.swarmMode --docker.watch --metrics.prometheus # Enables the web UI and tells Træfik to listen to docker
+    # command: --api --docker --docker.swarmMode --docker.watch  --acme=true --acme.entrypoint=https --acme.email="golfcomsci@outlook.com" --acme.onhostrule=true --acme.storage=/etc/traefik/acme/acme.json --acme.httpchallenge --acme.httpchallenge.entrypoint=http --entryPoints='Name:https Address::443 TLS' --entryPoints='Name:http Address::80' --defaultEntryPoints='https'  --metrics.prometheus
+    command:
+      # Use your favourite settings here, but add:
+    - --docker
+    - --docker.swarmMode
+    - --docker.domain=traefik
+    - --docker.watch
+    - --api
+    - --defaultentrypoints=https
+    - --acme
+    - --acme.email=golfcomsci@outlook.com
+        # TODO: envvar for email and default domain
+    - --acme.httpchallenge
+    - --acme.httpchallenge.entrypoint=http
+    - --acme.onhostrule=true
+    - --acme.entrypoint=https
+    - --entryPoints=Name:https Address::443 TLS
+    - --entryPoints=Name:http Address::80
+    - --acme.storage=/etc/traefik/acme/acme.json
+    - --acme.acmelogging
+    - --metrics.prometheus
+    - --acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+      # - --acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+    volumes:
+    - /root/docker-swarm-cluster/acme:/etc/traefik/acme
+    - /var/run/docker.sock:/var/run/docker.sock   # So that Traefik can listen to the Docker events
+    ports:
+    - 3030:8080     # The Web UI (enabled by --api)
+    - 443:443
+    - 80:80         # The HTTP port
+    networks:
+    - metrics-net
+    - traefik-net
+
+    deploy:
+      placement:
+        constraints:
+        - node.role == manager
+    logging:
+      options:
+        max-size: 500k
+networks:
+    # "docker network create traefik-net --scope swarm -d overlay"
+  metrics-net:
+    external: true
+  traefik-net:
+    external: true
+    # "docker network create metrics-net --scope swarm -d overlay"
